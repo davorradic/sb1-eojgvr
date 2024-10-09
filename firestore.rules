@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    function hasRole(role) {
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    // Users collection rules
+    match /users/{userId} {
+      allow read: if isAuth() && (request.auth.uid == userId || hasRole('teacher'));
+      allow create: if isAuth();
+      allow update: if isAuth() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // Job Listings collection rules
+    match /jobListings/{jobId} {
+      allow read: if true;
+      allow create: if isAuth() && hasRole('company');
+      allow update: if isAuth() && (hasRole('company') && resource.data.companyId == request.auth.uid) || hasRole('teacher');
+      allow delete: if isAuth() && hasRole('company') && resource.data.companyId == request.auth.uid;
+    }
+  }
+}
